@@ -48,7 +48,7 @@ class ImagesLoader(object):
                                  (str(dtype), str(ary.dtype)))
         narrays = len(arrays)
         npartitions = min(narrays, npartitions) if npartitions else narrays
-        return Images(self.sc.parallelize(enumerate(arrays), npartitions),
+        return Images(self.sc.parallelize(enumerate(arrays)).map(lambda x:((x[0],), x[1]), npartitions),
                       dims=shape, dtype=str(dtype), nrecords=narrays)
 
     def fromStack(self, dataPath, dims=None, dtype=None, ext='stack', startIdx=None, stopIdx=None, recursive=False,
@@ -148,7 +148,7 @@ class ImagesLoader(object):
                                 npartitions=npartitions)
         nrecords = reader.lastNRecs if nplanes is None else None
         newDims = tuple(list(dims[:-1]) + [nplanes]) if nplanes else dims
-        return Images(readerRdd.flatMap(toArray), nrecords=nrecords, dims=newDims, dtype=dtype)
+        return Images(readerRdd.flatMap(toArray).map(lambda x:((x[0],), x[1])), nrecords=nrecords, dims=newDims, dtype=dtype)
 
     def fromOCP(self, bucketName, resolution, server='ocp.me', startIdx=None, stopIdx=None,
                 minBound=None, maxBound=None):
@@ -245,7 +245,7 @@ class ImagesLoader(object):
             return data
       
         rdd = self.sc.parallelize(enumerate(urlList), len(urlList)).map(lambda (k, v): (k, read(v)))
-        return Images(rdd, nrecords=len(urlList))
+        return Images(rdd.map(lambda x:((x[0],), x[1])), nrecords=len(urlList))
 
     def fromTif(self, dataPath, ext='tif', startIdx=None, stopIdx=None, recursive=False, nplanes=None,
                 npartitions=None):
@@ -372,7 +372,7 @@ class ImagesLoader(object):
         readerRdd = reader.read(dataPath, ext=ext, startIdx=startIdx, stopIdx=stopIdx, recursive=recursive,
                                 npartitions=npartitions)
         nrecords = reader.lastNRecs if nplanes is None else None
-        return Images(readerRdd.flatMap(multitifReader), nrecords=nrecords)
+        return Images(readerRdd.flatMap(multitifReader).map(lambda x:((x[0],), x[1])), nrecords=nrecords)
 
     def fromPng(self, dataPath, ext='png', startIdx=None, stopIdx=None, recursive=False, npartitions=None):
         """Load an Images object stored in a directory of png files
@@ -410,7 +410,7 @@ class ImagesLoader(object):
         reader = getParallelReaderForPath(dataPath)(self.sc, awsCredentialsOverride=self.awsCredentialsOverride)
         readerRdd = reader.read(dataPath, ext=ext, startIdx=startIdx, stopIdx=stopIdx, recursive=recursive,
                                 npartitions=npartitions)
-        return Images(readerRdd.mapValues(readPngFromBuf), nrecords=reader.lastNRecs)
+        return Images(readerRdd.mapValues(readPngFromBuf).map(lambda x:((x[0],), x[1])), nrecords=reader.lastNRecs)
 
 
 def writeBinaryImagesConfig(outputDirPath, dims, dtype='int16',
